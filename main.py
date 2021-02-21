@@ -1,5 +1,5 @@
-from anon_talks import bot
+from anon_talks import start
 
 
 if __name__ == '__main__':
-    bot.start()
+    start()

@@ -2,11 +2,11 @@ import asyncio
 from datetime import datetime, timedelta
 from enum import Enum
 
-from pypika.functions import Now
-from pypika.queries import Query, Table
-from pypika.terms import Interval
+from pypika import PostgreSQLQuery as Query
+from pypika.queries import Table
 from tortoise import Model, fields, Tortoise
-from tortoise.transactions import in_transaction
+from tortoise.queryset import QuerySet
+from tortoise.query_utils import Q
 
 from anon_talks import config
 from anon_talks.utils import ExistsCriterion
@@ -32,6 +32,18 @@ class TelegramUser(TimestampMixin, Model):
         return f'TG user {self.pk}'
 
 
+class ConversationQuerySet(QuerySet):
+
+    def in_progress(self):
+        return self.filter(opponent_id__isnull=False, finished_at__isnull=True)
+
+    def with_user_participant(self, user: 'TelegramUser'):
+        return self.filter(Q(initiator=user) | Q(opponent=user))
+
+    def waiting_opponent(self):
+        return self.filter(opponent_id__isnull=True, finished_at__isnull=True)
+
+
 class Conversation(TimestampMixin, Model):
     id = fields.IntField(pk=True)
     initiator = fields.ForeignKeyField('anon_talks.TelegramUser', related_name='started_conversations')
@@ -45,7 +57,7 @@ class Conversation(TimestampMixin, Model):
     async def start(cls, user: TelegramUser) -> 'Conversation':
         conversation_table = Table(cls._meta.db_table)
         c1 = Table(cls._meta.db_table, alias='C1')
-        params = [cls._meta.db.executor_class.parameter(None, i) for i in range(1, 5)]
+        params = [cls._meta.db.executor_class.parameter(None, i) for i in range(4)]
 
         subquery = (
             Query.from_(c1)
@@ -56,9 +68,10 @@ class Conversation(TimestampMixin, Model):
         )
         query = (
             Query.from_(conversation_table)
-            .select(conversation_table.id, conversation_table.finished_at)
+            .select(conversation_table.id)
             .limit(1)
             .where(conversation_table.opponent_id.isnull()
+                   & conversation_table.finished_at.isnull()
                    & (conversation_table.initiator_id != params[0])  # not own created
                    & ExistsCriterion(subquery).negate())  # should not have the same recent opponent
         )
@@ -84,3 +97,37 @@ class Conversation(TimestampMixin, Model):
             )
 
         return conversation
+
+    @classmethod
+    def in_progress(cls):
+        return cls._qs().in_progress()
+
+    @classmethod
+    def with_user_participant(cls, user: TelegramUser):
+        return cls._qs().with_user_participant(user=user)
+
+    @classmethod
+    def waiting_opponent(cls):
+        return cls._qs().waiting_opponent()
+
+    def get_opponent(self, user: TelegramUser):
+        if user.tg_id == self.opponent_id:
+            return self.initiator
+        return self.opponent
+
+    async def finish(self):
+        member_users = [self.initiator]
+        if self.opponent_id:
+            member_users.append(self.opponent)
+
+        self.finished_at = datetime.now()
+        coros = [self.save(update_fields=['finished_at'])]
+        for user in member_users:
+            user.status = TelegramUser.Status.IN_MENU
+            coros.append(user.save(update_fields=['status']))
+
+        await asyncio.gather(*coros)
+
+    @classmethod
+    def _qs(cls):
+        return ConversationQuerySet(model=cls)

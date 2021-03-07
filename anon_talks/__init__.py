@@ -3,6 +3,7 @@ from urllib.parse import urljoin
 
 from aiogram.utils.executor import start_webhook
 from tortoise import run_async, Tortoise
+from tortoise.backends.base.config_generator import generate_config
 
 from anon_talks import config
 from anon_talks.bot import bot, dispatcher
@@ -45,7 +46,12 @@ async def _on_shutdown(__):
 
 
 async def _init_db():
-    await Tortoise.init(db_url=config.DATABASE_URL, modules={'anon_talks': ['anon_talks.models']})
+    db_config = generate_config(
+        db_url=config.DATABASE_URL,
+        app_modules={'anon_talks': ['anon_talks.models']},
+        connection_label='anon_talks',
+    )
+    await Tortoise.init(config=db_config)
     logging.info("Tortoise-ORM started.")
 
 

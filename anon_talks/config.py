@@ -23,4 +23,4 @@ WEBAPP_PORT = os.getenv('WEBAPP_PORT', 3001)
 
 # Custom settings
 # ------------------------------------------------------------------------------
-RECENT_OPPONENT_TIMEOUT = 10  # in minutes
+RECENT_OPPONENT_TIMEOUT = 5  # in minutes

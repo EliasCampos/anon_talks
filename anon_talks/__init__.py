@@ -2,63 +2,54 @@ import logging
 from urllib.parse import urljoin
 
 from aiogram.utils.executor import start_webhook
-from tortoise import Tortoise
+from tortoise import run_async, Tortoise
 
-from anon_talks.bot import bot, dispatcher
 from anon_talks import config
-
-logging.basicConfig(level=logging.INFO)  # Configure logging
-
-
-_WEBHOOK_PATH = f'/callback/{config.BOT_API_TOKEN}/'
+from anon_talks.bot import bot, dispatcher
 
 
-async def _init_orm():
-    db_config = {
-        'connections': {
-            'default': {
-                'engine': 'tortoise.backends.asyncpg',
-                'credentials': config.DATABASE_CREDENTIALS,
-            }
-        },
-        'apps': {
-            'conversations': {
-                'models': ['anon_talks.models'],
-            }
-        },
-        'use_tz': False,
-        'timezone': 'UTC'
-    }
-
-    await Tortoise.init(config=db_config)
-    logging.info("Tortoise-ORM started.")
-    await Tortoise.generate_schemas()
+logging.basicConfig(level=logging.INFO)
 
 
-async def _close_orm():
-    await Tortoise.close_connections()
-    logging.info("Tortoise-ORM shutdown.")
-
-
-async def _on_startup(__):
-    webhook_url = urljoin(f'https://{config.BOT_WEBHOOK_HOST}', _WEBHOOK_PATH)
-    await bot.set_webhook(webhook_url)
-    await _init_orm()
-
-
-async def _on_shutdown(__):
-    logging.warning('Shutting down...')
-    await bot.delete_webhook()
-    await _close_orm()
+WEBHOOK_PATH = f'/callback/{config.BOT_API_TOKEN}/'
 
 
 def start():
     start_webhook(
         dispatcher=dispatcher,
-        webhook_path=_WEBHOOK_PATH,
+        webhook_path=WEBHOOK_PATH,
         on_startup=_on_startup,
         on_shutdown=_on_shutdown,
         skip_updates=True,
         host=config.WEBAPP_HOST,
         port=config.WEBAPP_PORT,
     )
+
+
+def sync_db():
+    run_async(_sync_db())
+
+
+async def _on_startup(__):
+    webhook_url = urljoin(f'https://{config.BOT_WEBHOOK_HOST}', WEBHOOK_PATH)
+    await bot.set_webhook(webhook_url)
+    await _init_db()
+
+
+async def _on_shutdown(__):
+    logging.warning('Shutting down...')
+    await Tortoise.close_connections()
+    logging.info("Tortoise-ORM shutdown.")
+
+    await bot.delete_webhook()
+
+
+async def _init_db():
+    await Tortoise.init(db_url=config.DATABASE_URL, modules={'anon_talks': ['anon_talks.models']})
+    logging.info("Tortoise-ORM started.")
+
+
+async def _sync_db():
+    await _init_db()
+    await Tortoise.generate_schemas(safe=False)
+    logging.info("Model schemes are generated.")

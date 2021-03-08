@@ -15,7 +15,14 @@ logging.basicConfig(level=logging.INFO)
 WEBHOOK_PATH = f'/callback/{config.BOT_API_TOKEN}/'
 
 
-def start():
+def start(socket_name=None):
+    if socket_name:
+        path = str(config.ROOT_PATH / 'socks' / socket_name)
+        port = None
+    else:
+        path = None
+        port = config.WEBAPP_PORT
+
     start_webhook(
         dispatcher=dispatcher,
         webhook_path=WEBHOOK_PATH,
@@ -23,7 +30,8 @@ def start():
         on_shutdown=_on_shutdown,
         skip_updates=True,
         host=config.WEBAPP_HOST,
-        port=config.WEBAPP_PORT,
+        port=port,
+        path=path,
     )
 
 
@@ -58,4 +66,4 @@ async def _init_db():
 async def _sync_db():
     await _init_db()
     await Tortoise.generate_schemas(safe=False)
-    logging.info("Model schemes are generated.")
+    logging.info("Model schemas are generated.")

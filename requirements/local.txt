@@ -1,0 +1,8 @@
+-r ./base.txt
+
+# Testing:
+# ------------------------
+asynctest==0.13.0  # https://github.com/Martiusweb/asynctest/
+pytest==6.2.2  # https://github.com/pytest-dev/pytest
+pytest-asyncio==0.14.0  # https://github.com/pytest-dev/pytest-asyncio
+pytest-freezegun==0.4.2  # https://github.com/ktosiek/pytest-freezegun

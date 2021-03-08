@@ -12,24 +12,24 @@ from anon_talks.bot import bot, dispatcher
 logging.basicConfig(level=logging.INFO)
 
 
-WEBHOOK_PATH = f'/callback/{config.BOT_API_TOKEN}/'
-
-
 def start(socket_name=None):
     if socket_name:
         path = str(config.ROOT_PATH / 'socks' / socket_name)
+        host = None
         port = None
     else:
         path = None
+        host = config.WEBAPP_HOST
         port = config.WEBAPP_PORT
 
+    webhook_path = f'/callback/{config.BOT_API_TOKEN}/'
     start_webhook(
         dispatcher=dispatcher,
-        webhook_path=WEBHOOK_PATH,
+        webhook_path=webhook_path,
         on_startup=_on_startup,
         on_shutdown=_on_shutdown,
         skip_updates=True,
-        host=config.WEBAPP_HOST,
+        host=host,
         port=port,
         path=path,
     )
@@ -40,8 +40,6 @@ def sync_db():
 
 
 async def _on_startup(__):
-    webhook_url = urljoin(f'https://{config.BOT_WEBHOOK_HOST}', WEBHOOK_PATH)
-    await bot.set_webhook(webhook_url)
     await _init_db()
 
 
@@ -49,8 +47,6 @@ async def _on_shutdown(__):
     logging.warning('Shutting down...')
     await Tortoise.close_connections()
     logging.info("Tortoise-ORM shutdown.")
-
-    await bot.delete_webhook()
 
 
 async def _init_db():

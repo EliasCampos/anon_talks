@@ -31,11 +31,9 @@ python main.py syncdb
 The bot uses webhooks. For proper work of Telegram bot API, provide next environment variables:
 ```
 BOT_API_TOKEN=
-BOT_WEBHOOK_HOST=
 ```
 where
 - `BOT_API_TOKEN` is a bot token, provided by BotFather
-- `BOT_WEBHOOK_HOST` is a domain name of a server where the bot is hosted (for sending tg updates)
 
 ## License
 The MIT License (MIT)

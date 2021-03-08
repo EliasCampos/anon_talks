@@ -10,6 +10,8 @@ from anon_talks.models import Conversation, TelegramUser
 
 
 class BotService:
+    MARKDOWN_MODE = 'MarkdownV2'
+
     START_TEXT = (
         "Приветствую\\! Это _AnonTalks бот_\\!\n\n"
         "Здесь вы можете общаться с другими, не расскрывая своей личности\\. _AnonTalks_ \\- это\\:\n"
@@ -30,10 +32,13 @@ class BotService:
         self._bot = bot
 
     async def register_user(self, user_id: int, chat_id: int) -> TelegramUser:
-        user, __ = await TelegramUser.get_or_create(tg_id=user_id, defaults={'tg_chat_id': chat_id})
-        await self._bot.send_message(
-            chat_id, self.START_TEXT, parse_mode='MarkdownV2', reply_markup=self.get_menu_keyboard()
-        )
+        user, is_created = await TelegramUser.get_or_create(tg_id=user_id, defaults={'tg_chat_id': chat_id})
+        if is_created:
+            keyboard = self.get_menu_keyboard()
+        else:
+            keyboard = None
+
+        await self._bot.send_message(chat_id, self.START_TEXT, parse_mode=self.MARKDOWN_MODE, reply_markup=keyboard)
         return user
 
     async def handle_message(self, message: Message):
@@ -61,10 +66,13 @@ class BotService:
             conversation = await Conversation.start(user=user)
             bot = self._bot
             if conversation.opponent:
-                message_text = "Собеседник найден - общайтесь"
+                message_text = "*Собеседник найден \\- общайтесь*"
                 end_conversation_keyboard = self.get_end_conversation_keyboard()
                 tasks = [
-                    bot.send_message(user.tg_chat_id, message_text, reply_markup=end_conversation_keyboard)
+                    bot.send_message(
+                        user.tg_chat_id, message_text,
+                        reply_markup=end_conversation_keyboard, parse_mode=self.MARKDOWN_MODE,
+                    )
                     for user in (conversation.initiator, conversation.opponent)
                 ]
                 await asyncio.gather(*tasks)
@@ -83,8 +91,10 @@ class BotService:
                      .filter(initiator_id=user.tg_id))
             chat = await chats.first()
             await chat.finish()
-            message_text = "Поиск отменён."
-            await self._bot.send_message(user.tg_chat_id, message_text, reply_markup=self.get_menu_keyboard())
+            message_text = "*Поиск отменён\\.*"
+            await self._bot.send_message(
+                user.tg_chat_id, message_text, parse_mode=self.MARKDOWN_MODE, reply_markup=self.get_menu_keyboard(),
+            )
 
     async def handle_in_conversation(self, message: Message, user: TelegramUser):
         conversation_qs = (Conversation
@@ -98,14 +108,15 @@ class BotService:
         if message.text == self.COMPLETE_CONVERSATION_BTN:
             await conversation.finish()
 
-            user_text = "Вы завершили чат."
-            opponent_text = "Собеседник завершил чат."
+            user_text = "*Вы завершили чат\\.*"
+            opponent_text = "*Собеседник завершил чат\\.*"
 
             menu_keyboard = self.get_menu_keyboard()
-            await asyncio.gather(
-                self._bot.send_message(user.tg_chat_id, user_text, reply_markup=menu_keyboard),
-                self._bot.send_message(opponent.tg_chat_id, opponent_text, reply_markup=menu_keyboard),
-            )
+            coros = [
+                self._bot.send_message(chat_id, text, reply_markup=menu_keyboard, parse_mode=self.MARKDOWN_MODE)
+                for chat_id, text in [(user.tg_chat_id, user_text), (opponent.tg_chat_id, opponent_text)]
+            ]
+            await asyncio.gather(*coros)
         else:
             await self._bot.send_message(opponent.tg_chat_id, message.text)
 

@@ -68,14 +68,14 @@ class BotService:
             if conversation.opponent:
                 message_text = "*Собеседник найден \\- общайтесь*"
                 end_conversation_keyboard = self.get_end_conversation_keyboard()
-                tasks = [
+                coros = [
                     bot.send_message(
                         user.tg_chat_id, message_text,
                         reply_markup=end_conversation_keyboard, parse_mode=self.MARKDOWN_MODE,
                     )
                     for user in (conversation.initiator, conversation.opponent)
                 ]
-                await asyncio.gather(*tasks)
+                await asyncio.gather(*coros)
             else:
                 await bot.send_message(
                     conversation.initiator.tg_chat_id, "Ищем свободного собеседника...",

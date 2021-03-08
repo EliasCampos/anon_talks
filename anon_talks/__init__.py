@@ -1,5 +1,4 @@
 import logging
-from urllib.parse import urljoin
 
 from aiogram.utils.executor import start_webhook
 from tortoise import run_async, Tortoise

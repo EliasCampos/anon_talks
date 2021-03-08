@@ -66,4 +66,4 @@ async def _init_db():
 async def _sync_db():
     await _init_db()
     await Tortoise.generate_schemas(safe=False)
-    logging.info("Model schemes are generated.")
+    logging.info("Model schemas are generated.")

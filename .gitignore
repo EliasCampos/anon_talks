@@ -9,3 +9,6 @@ __pycache__
 
 # Environment variables
 .env
+
+# unix sockets
+socks/*.sock

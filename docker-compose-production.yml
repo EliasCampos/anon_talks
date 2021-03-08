@@ -1,0 +1,51 @@
+version: '3.4'
+
+services:
+
+  db:
+    image: postgres:10.15-alpine
+    networks:
+      - db
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    env_file:
+      - envs/db/.env
+
+  nginx:
+    image: nginx:1.18.0-alpine
+    networks:
+      - nginx
+    ports:
+      - 80:80
+    volumes:
+      - ./nginx_conf:/etc/nginx/conf.d
+      - ./socks:/tmp/socks
+
+  bot:
+    build:
+      context: .
+    networks:
+      - bot
+      - db
+      - nginx
+    volumes:
+      - ./:/app
+    command: |
+      /usr/bin/env sh -c "python main.py run --sock_name bot_1.sock"
+    env_file:
+      - envs/bot/.env
+    depends_on:
+      - db
+
+networks:
+  db:
+    driver: bridge
+  nginx:
+    driver: bridge
+  bot:
+    driver: bridge
+
+volumes:
+    dbdata:
+      name: anon_talks_db
+      driver: local

@@ -2,3 +2,4 @@ python-dotenv==0.15.0  # https://github.com/theskumar/python-dotenv
 uvloop==0.15.2  # https://github.com/MagicStack/uvloop
 aiogram==2.11.2  # https://github.com/aiogram/aiogram
 tortoise-orm[asyncpg]==0.16.21  # https://github.com/tortoise/tortoise-orm
+ujson==4.0.2  # https://github.com/ultrajson/ultrajson

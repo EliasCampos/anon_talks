@@ -1,10 +1,10 @@
 import asyncio
-import os
 
 import pytest
 from pypika.queries import Query
 from tortoise import Tortoise
-from tortoise.contrib.test import finalizer, initializer, _restore_default
+
+from anon_talks import _sync_db
 
 
 @pytest.fixture(scope='session')
@@ -15,11 +15,10 @@ def event_loop():
 
 
 @pytest.fixture(scope='session', autouse=True)
-def initialize_tests(request):
-    db_url = os.environ.get("TORTOISE_TEST_DB", "sqlite://:memory:")
-    initializer(['anon_talks.models'], db_url=db_url, app_label='anon_talks')
-    _restore_default()
-    request.addfinalizer(finalizer)
+def initialize_tests(event_loop):
+    event_loop.run_until_complete(_sync_db(db_url="sqlite://:memory:"))
+    yield
+    event_loop.run_until_complete(Tortoise.close_connections())
 
 
 @pytest.fixture(scope='function', autouse=True)

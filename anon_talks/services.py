@@ -88,7 +88,7 @@ class BotService:
                      .waiting_opponent()
                      .select_related('initiator')
                      .order_by('-id')
-                     .filter(initiator_id=user.tg_id))
+                     .filter(initiator_id=user.pk))
             chat = await chats.first()
             await chat.finish()
             message_text = "*Поиск отменён\\.*"

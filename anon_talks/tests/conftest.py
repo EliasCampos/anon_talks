@@ -1,5 +1,4 @@
 import asyncio
-import os
 
 import pytest
 from pypika.queries import Query

@@ -1,4 +1,5 @@
 import argparse
+import uvloop
 from anon_talks import start, sync_db
 
 
@@ -13,6 +14,7 @@ def main():
     if args.command == 'syncdb':
         sync_db()
     else:
+        uvloop.install()
         start(socket_name=args.sock_name)
 
 

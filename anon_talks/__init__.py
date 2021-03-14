@@ -1,11 +1,13 @@
 import logging
 
+from aiogram.dispatcher import Dispatcher
 from aiogram.utils.executor import start_webhook
 from tortoise import run_async, Tortoise
 from tortoise.backends.base.config_generator import generate_config
 
 from anon_talks import config
-from anon_talks.bot import bot, dispatcher
+from anon_talks.integrations.botlytics import BotlyticsClient
+from anon_talks.bot import bot, dispatcher, AnalyticsMiddleware
 
 
 logging.basicConfig(level=logging.INFO)
@@ -38,19 +40,27 @@ def sync_db():
     run_async(_sync_db())
 
 
-async def _on_startup(__):
+async def _on_startup(dp: Dispatcher):
+    if config.BOTLYTICS_API_KEY:
+        analytics_client = BotlyticsClient(api_key=config.BOTLYTICS_API_KEY)
+        dp['analytic_client'] = analytics_client
+        dp.middleware.setup(AnalyticsMiddleware(analytic_client=analytics_client))
+
     await _init_db()
 
 
-async def _on_shutdown(__):
+async def _on_shutdown(dp: Dispatcher):
     logging.warning('Shutting down...')
     await Tortoise.close_connections()
     logging.info("Tortoise-ORM shutdown.")
 
+    if 'analytic_client' in dp:
+        await dp['analytic_client'].close_session()
 
-async def _init_db():
+
+async def _init_db(db_url=None):
     db_config = generate_config(
-        db_url=config.DATABASE_URL,
+        db_url=db_url or config.DATABASE_URL,
         app_modules={'anon_talks': ['anon_talks.models']},
         connection_label='anon_talks',
     )
@@ -58,7 +68,7 @@ async def _init_db():
     logging.info("Tortoise-ORM started.")
 
 
-async def _sync_db():
-    await _init_db()
+async def _sync_db(db_url=None):
+    await _init_db(db_url)
     await Tortoise.generate_schemas(safe=False)
     logging.info("Model schemas are generated.")

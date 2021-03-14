@@ -2,8 +2,7 @@ import asyncio
 from datetime import datetime, timedelta
 from enum import Enum
 
-from pypika import PostgreSQLQuery as Query
-from pypika.queries import Table
+from pypika.queries import Query, Table
 from tortoise import Model, fields, Tortoise
 from tortoise.queryset import QuerySet
 from tortoise.query_utils import Q
@@ -24,7 +23,8 @@ class TelegramUser(TimestampMixin, Model):
         WAITING_OPPONENT = 'waiting_opponent'
         IN_CONVERSATION = 'in_conversation'
 
-    tg_id = fields.BigIntField(unique=True, pk=True)
+    id = fields.IntField(pk=True)
+    tg_id = fields.BigIntField(unique=True)
     tg_chat_id = fields.BigIntField(unique=True)
     status = fields.CharEnumField(Status, default=Status.IN_MENU, max_length=30)
 
@@ -79,7 +79,7 @@ class Conversation(TimestampMixin, Model):
         time_limit = datetime.now() - timedelta(minutes=config.RECENT_OPPONENT_TIMEOUT)
         connection = Tortoise.get_connection('anon_talks')
 
-        __, suitable_conversations = await connection.execute_query(query.get_sql(), ([user.tg_id] * 3) + [time_limit])
+        __, suitable_conversations = await connection.execute_query(query.get_sql(), ([user.id] * 3) + [time_limit])
         if suitable_conversations:
             conversation = await cls.all().select_related('initiator').get(id=suitable_conversations[0][0])
             conversation.opponent = user
@@ -111,7 +111,7 @@ class Conversation(TimestampMixin, Model):
         return cls._qs().waiting_opponent()
 
     def get_opponent(self, user: TelegramUser):
-        if user.tg_id == self.opponent_id:
+        if user.pk == self.opponent_id:
             return self.initiator
         return self.opponent
 
